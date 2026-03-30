@@ -1,0 +1,104 @@
+package db
+
+import (
+	"crypto/sha256"
+	"database/sql"
+	"encoding/hex"
+	"fmt"
+
+	_ "github.com/lib/pq"
+)
+
+type DBConnection struct {
+	db *sql.DB
+	Table string
+	DateTable string
+}
+
+// Новое соединение
+func NewConnection(dsn, table, dateTable string) (*DBConnection, error) {
+	db, err := sql.Open("postgres", dsn)
+	
+	if err != nil {
+		return nil, fmt.Errorf("Ошибка драйвера БД: %w", err)
+	}
+	
+	if err = db.Ping(); err != nil {
+		return  nil, fmt.Errorf("БД недоступна: %w", err)
+	}
+
+	return &DBConnection{
+		db: db,
+		Table: table,
+		DateTable: dateTable,
+	}, nil
+}
+
+// Закрытие соединения
+func (conn *DBConnection) Close() error {
+	return conn.db.Close()
+}
+
+// Создание таблиц
+func (conn *DBConnection) InitTables() error {
+	query := fmt.Sprintf(`
+	CREATE TABLE IF NOT EXISTS %s (
+		id SERIAL PRIMARY KEY,
+		json_data JSONB,
+		hash VARCHAR(64) UNIQUE,
+		page_number INT
+	);
+	CREATE TABLE IF NOT EXISTS %s (
+		id SERIAL PRIMARY KEY,
+		main_id INT REFERENCES %s(id) ON DELETE CASCADE,
+		dt TIMESTAMP DEFAULT NOW()
+	);
+	`, conn.Table, conn.DateTable, conn.Table)
+	_, err := conn.db.Exec(query)
+	return err
+}
+
+// Запись данных в таблицы данных и дат
+func (conn *DBConnection) SaveData(data []byte, pageNumber int) error {
+	hashSum := sha256.Sum256(data)
+	hashStr := hex.EncodeToString(hashSum[:])
+
+	// Начало транзакции
+	tx, err := conn.db.Begin()
+	if err != nil {
+		return fmt.Errorf("Ошибка начала транзакции: %w", err)
+	}
+
+	defer tx.Rollback()
+
+	var dataId int // Переменная для хранения ID записи
+
+	// Запись в таблицу данных
+	queryTable := fmt.Sprintf(`
+		INSERT INTO %s (json_data, hash, page_number)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (hash) DO UPDATE SET hash = EXCLUDED.hash
+		RETURNING id
+	`, conn.Table)
+	err = tx.QueryRow(queryTable, string(data), hashStr, pageNumber).Scan(&dataId)
+	if err != nil {
+		return fmt.Errorf("Ошибка при записи/получении ID (для хэша %s): %w", hashStr, err)
+	}
+
+	// Запись в таблицу дат
+	queryDateTable := fmt.Sprintf(`
+		INSERT INTO %s (main_id)
+		VALUES ($1)
+	`, conn.queryDateTable)
+	_, err = tx.Exec(queryDateTable, dataId)
+	if err != nil {
+		return fmt.Errorf("Ошибка при записи в таблицу дат (для id %d): %w", dataId, err)
+	}
+
+	// Подтверждение транзакции
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("Ошибка подтверждения транзакции: %w", err)
+	}
+
+	return nil
+}

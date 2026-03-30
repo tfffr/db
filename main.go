@@ -4,32 +4,33 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 
 	_ "github.com/lib/pq"
 )
 
 type DBConnection struct {
-	db *sql.DB
-	Table string
+	db        *sql.DB
+	Table     string
 	DateTable string
 }
 
 // Новое соединение
 func NewConnection(dsn, table, dateTable string) (*DBConnection, error) {
 	db, err := sql.Open("postgres", dsn)
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("Ошибка драйвера БД: %w", err)
 	}
-	
+
 	if err = db.Ping(); err != nil {
-		return  nil, fmt.Errorf("БД недоступна: %w", err)
+		return nil, fmt.Errorf("БД недоступна: %w", err)
 	}
 
 	return &DBConnection{
-		db: db,
-		Table: table,
+		db:        db,
+		Table:     table,
 		DateTable: dateTable,
 	}, nil
 }
@@ -51,7 +52,7 @@ func (conn *DBConnection) InitTables() error {
 	CREATE TABLE IF NOT EXISTS %s (
 		id SERIAL PRIMARY KEY,
 		main_id INT REFERENCES %s(id) ON DELETE CASCADE,
-		dt TIMESTAMP DEFAULT NOW()
+		dt TIMESTAMPZ DEFAULT NOW()
 	);
 	`, conn.Table, conn.DateTable, conn.Table)
 	_, err := conn.db.Exec(query)
@@ -59,9 +60,10 @@ func (conn *DBConnection) InitTables() error {
 }
 
 // Запись данных в таблицы данных и дат
-func (conn *DBConnection) SaveData(data []byte, pageNumber int) error {
-	hashSum := sha256.Sum256(data)
-	hashStr := hex.EncodeToString(hashSum[:])
+func (conn *DBConnection) SaveBatch(items []json.RawMessage, pageNumber int) error {
+	if len(items) == 0 {
+		return nil
+	}
 
 	// Начало транзакции
 	tx, err := conn.db.Begin()
@@ -71,28 +73,35 @@ func (conn *DBConnection) SaveData(data []byte, pageNumber int) error {
 
 	defer tx.Rollback()
 
-	var dataId int // Переменная для хранения ID записи
-
-	// Запись в таблицу данных
+	// Запрос по таблице данных
 	queryTable := fmt.Sprintf(`
 		INSERT INTO %s (json_data, hash, page_number)
 		VALUES ($1, $2, $3)
 		ON CONFLICT (hash) DO UPDATE SET hash = EXCLUDED.hash
 		RETURNING id
 	`, conn.Table)
-	err = tx.QueryRow(queryTable, string(data), hashStr, pageNumber).Scan(&dataId)
-	if err != nil {
-		return fmt.Errorf("Ошибка при записи/получении ID (для хэша %s): %w", hashStr, err)
-	}
 
-	// Запись в таблицу дат
+	// Запрос по таблице дат
 	queryDateTable := fmt.Sprintf(`
 		INSERT INTO %s (main_id)
 		VALUES ($1)
-	`, conn.queryDateTable)
-	_, err = tx.Exec(queryDateTable, dataId)
-	if err != nil {
-		return fmt.Errorf("Ошибка при записи в таблицу дат (для id %d): %w", dataId, err)
+	`, conn.DateTable)
+
+	for _, item := range items {
+		hashSum := sha256.Sum256(item)
+		hashStr := hex.EncodeToString(hashSum[:])
+
+		var dataId int // Переменная для хранения ID записи
+
+		err = tx.QueryRow(queryTable, item, hashStr, pageNumber).Scan(&dataId)
+		if err != nil {
+			return fmt.Errorf("Ошибка при записи/получении ID (для хэша %s): %w", hashStr, err)
+		}
+
+		_, err = tx.Exec(queryDateTable, dataId)
+		if err != nil {
+			return fmt.Errorf("Ошибка при записи в таблицу дат (для id %d): %w", dataId, err)
+		}
 	}
 
 	// Подтверждение транзакции

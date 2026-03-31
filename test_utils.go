@@ -58,9 +58,9 @@ func FillTestData(t *testing.T, conn *DBConnection) {
 	t.Helper()
 
 	// Вставка тестовых данных
-	record1, _ := json.Marshal(map[string]string{"record": "record 1"})
-	record2, _ := json.Marshal(map[string]string{"record": "record 2"})
-	record3, _ := json.Marshal(map[string]string{"record": "record 3"})
+	record1, _ := json.Marshal(map[string]string{"record": "record 1", "foo": "bar", "genre": "jazz"})
+	record2, _ := json.Marshal(map[string]string{"record": "record 2", "foo": "baz", "genre": "blues"})
+	record3, _ := json.Marshal(map[string]string{"record": "record 3", "foo": "bal", "genre": "disco"})
 
 	insertRecord(t, conn, record1, "2026-02-01 10:00:00Z")
 	insertRecord(t, conn, record2, "2026-02-01 10:00:00Z")

@@ -19,7 +19,11 @@ func TestExportToExcel(t *testing.T) {
 		t.Fatalf("Ошибка создания view: %v", err)
 	}
 
-	err = conn.ExportViewToExcel(viewName, "report.xlsx")
+	exportKeys := []string{
+		"foo",
+		"genre",
+	}
+	err = conn.ExportViewToExcel(viewName, "report.xlsx", exportKeys)
 	if err != nil {
 		t.Fatalf("Ошибка экспорта в XLSX: %v", err)
 	}

@@ -5,9 +5,9 @@ const (
 	Timeout = 60
 	DBHost  = "localhost"
 	DBPort  = "5432"
-	DBUser  = "jeff"
-	DBPswd  = "Ntnhbfyljx1517"
-	DBName  = "wanted"
+	DBUser  = "user"
+	DBPswd  = "pswd"
+	DBName  = "db"
 
 	// XLSX
 	SheetName            = "Данные"

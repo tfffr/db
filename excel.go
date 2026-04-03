@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/xuri/excelize/v2"
 )
@@ -57,8 +59,8 @@ func (conn *DBConnection) ExportViewToExcel(
 	}
 
 	// Сохранение файла
-	if err := f.SaveAs(fileName); err != nil {
-		return fmt.Errorf("Ошибка сохранения файла: %w", err)
+	if err := saveFile(f, fileName); err != nil {
+		return err
 	}
 
 	return nil
@@ -164,4 +166,17 @@ func writeExtraColumns(
 			f.SetCellValue(SheetName, cell, val)
 		}
 	}
+}
+
+func saveFile(f *excelize.File, fileName string) error {
+	dir := filepath.Dir(fileName)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("Ошибка создания директории %s: %w", dir, err)
+	}
+
+	if err := f.SaveAs(fileName); err != nil {
+		return fmt.Errorf("Ошибка сохранения файла: %w", err)
+	}
+
+	return nil
 }

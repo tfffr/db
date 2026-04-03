@@ -123,3 +123,8 @@ func (conn *DBConnection) SaveBatch(items []json.RawMessage, pageNumber int) err
 
 	return nil
 }
+
+// Выполнение кастомных запросов
+func (conn *DBConnection) Exec(query string, args ...any) (sql.Result, error) {
+	return conn.db.Exec(query, args...)
+}

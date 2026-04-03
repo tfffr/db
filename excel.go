@@ -16,10 +16,13 @@ SELECT
 FROM %s
 `
 
+type Transformer func(row map[string]interface{}) interface{}
+
 func (conn *DBConnection) ExportViewToExcel(
 	viewName string,
 	fileName string,
 	extractKeys []string,
+	apply map[string]Transformer,
 ) error {
 	// Запрос данных из view
 	query := fmt.Sprintf(QueryString, viewName)
@@ -47,7 +50,7 @@ func (conn *DBConnection) ExportViewToExcel(
 	writeHeaders(f, extractKeys)
 
 	// Заполнение XLSX данными
-	if err := writeData(f, rows, extractKeys); err != nil {
+	if err := writeData(f, rows, extractKeys, apply); err != nil {
 		return err
 	}
 
@@ -83,7 +86,12 @@ func writeHeaders(f *excelize.File, extractKeys []string) {
 }
 
 // Заполнение XLSX данными
-func writeData(f *excelize.File, rows *sql.Rows, extractKeys []string) error {
+func writeData(
+	f *excelize.File,
+	rows *sql.Rows,
+	extractKeys []string,
+	apply map[string]Transformer,
+) error {
 	rowIdx := 2 // Запись после заголовков
 
 	for rows.Next() {
@@ -102,7 +110,7 @@ func writeData(f *excelize.File, rows *sql.Rows, extractKeys []string) error {
 
 		// Дополнительные столбцы
 		if len(extractKeys) > 0 {
-			writeExtraColumns(f, rowIdx, jsonData, extractKeys)
+			writeExtraColumns(f, rowIdx, jsonData, extractKeys, apply)
 		}
 
 		rowIdx++
@@ -116,7 +124,13 @@ func writeData(f *excelize.File, rows *sql.Rows, extractKeys []string) error {
 	return nil
 }
 
-func writeExtraColumns(f *excelize.File, rowIdx int, jsonData []byte, extraKeys []string) {
+func writeExtraColumns(
+	f *excelize.File,
+	rowIdx int,
+	jsonData []byte,
+	extraKeys []string,
+	apply map[string]Transformer,
+) {
 	var parsed map[string]interface{}
 
 	// Пропуск, если невалидный JSON
@@ -126,7 +140,12 @@ func writeExtraColumns(f *excelize.File, rowIdx int, jsonData []byte, extraKeys 
 
 	for i, key := range extraKeys {
 		colIdx := 4 + i // Первые 3 столбца - базовые. Начало с 4 столбца
-		if val, ok := parsed[key]; ok {
+		cell, _ := excelize.CoordinatesToCellName(colIdx, rowIdx)
+
+		// Есть ли функция apply
+		if fn, exists := apply[key]; exists {
+			f.SetCellValue(SheetName, cell, fn(parsed))
+		} else if val, ok := parsed[key]; ok {
 			cell, _ := excelize.CoordinatesToCellName(colIdx, rowIdx)
 			f.SetCellValue(SheetName, cell, val)
 		}

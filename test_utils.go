@@ -29,7 +29,11 @@ func SetupTestDB(t *testing.T) *DBConnection {
 	// Соединение с БД
 	dsn := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s",
-		DBHost, DBPort, DBUser, DBPswd, DBName,
+		GetEnv("DB_HOST", "localhost"),
+		GetEnv("DB_PORT", "5432"),
+		GetEnv("DB_USER", "user"),
+		GetEnv("DB_PSWD", "pswd"),
+		GetEnv("DB_NAME", "db"),
 	)
 	conn, err := NewConnection(dsn, "test_table", "test_dt")
 	if err != nil {

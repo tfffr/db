@@ -1,0 +1,4 @@
+*.txt
+*.xlsx
+.env
+_t.go

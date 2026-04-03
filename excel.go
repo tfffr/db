@@ -16,13 +16,15 @@ SELECT
 FROM %s
 `
 
-type Transformer func(row map[string]interface{}) interface{}
+type ApplyFunc func(row map[string]any) any
+type FilterFunc func(row map[string]any) bool
 
 func (conn *DBConnection) ExportViewToExcel(
 	viewName string,
 	fileName string,
 	extractKeys []string,
-	apply map[string]Transformer,
+	apply map[string]ApplyFunc,
+	filter FilterFunc,
 ) error {
 	// Запрос данных из view
 	query := fmt.Sprintf(QueryString, viewName)
@@ -50,7 +52,7 @@ func (conn *DBConnection) ExportViewToExcel(
 	writeHeaders(f, extractKeys)
 
 	// Заполнение XLSX данными
-	if err := writeData(f, rows, extractKeys, apply); err != nil {
+	if err := writeData(f, rows, extractKeys, apply, filter); err != nil {
 		return err
 	}
 
@@ -90,7 +92,8 @@ func writeData(
 	f *excelize.File,
 	rows *sql.Rows,
 	extractKeys []string,
-	apply map[string]Transformer,
+	apply map[string]ApplyFunc,
+	filter FilterFunc,
 ) error {
 	rowIdx := 2 // Запись после заголовков
 
@@ -101,6 +104,17 @@ func writeData(
 
 		if err := rows.Scan(&jsonData, &dtInclusion, &dtExclusion); err != nil {
 			return fmt.Errorf("Ошибка сканирования строки: %w", err)
+		}
+
+		// Проверка фильтра перед записью
+		if filter != nil {
+			var parsed map[string]any
+			if err := json.Unmarshal(jsonData, &parsed); err == nil {
+				// Пропуск строк, которые не включены в фильтр
+				if !filter(parsed) {
+					continue
+				}
+			}
 		}
 
 		// Базовые столбцы
@@ -129,7 +143,7 @@ func writeExtraColumns(
 	rowIdx int,
 	jsonData []byte,
 	extraKeys []string,
-	apply map[string]Transformer,
+	apply map[string]ApplyFunc,
 ) {
 	var parsed map[string]interface{}
 

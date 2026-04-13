@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS %s (
 	id SERIAL PRIMARY KEY,
 	main_id INT REFERENCES %s(id) ON DELETE CASCADE,
 	dt TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+CREATE TABLE IF NOT EXISTS %s (
+	hash VARCHAR(64) PRIMARY KEY,
+	response JSONB
 );
 `
 	SQLQueryTable = `
@@ -37,13 +40,14 @@ VALUES ($1)
 )
 
 type DBConnection struct {
-	db        *sql.DB
-	Table     string
-	DateTable string
+	db           *sql.DB
+	Table        string
+	DateTable    string
+	AICacheTable string
 }
 
 // Новое соединение
-func NewConnection(dsn, table, dateTable string) (*DBConnection, error) {
+func NewConnection(dsn, table string) (*DBConnection, error) {
 	db, err := sql.Open("postgres", dsn)
 
 	if err != nil {
@@ -55,9 +59,10 @@ func NewConnection(dsn, table, dateTable string) (*DBConnection, error) {
 	}
 
 	return &DBConnection{
-		db:        db,
-		Table:     table,
-		DateTable: dateTable,
+		db:           db,
+		Table:        table,
+		DateTable:    table + "_dt",
+		AICacheTable: table + "_ai_cache",
 	}, nil
 }
 
@@ -68,7 +73,7 @@ func (conn *DBConnection) Close() error {
 
 // Создание таблиц
 func (conn *DBConnection) InitTables() error {
-	query := fmt.Sprintf(SQLCreateTable, conn.Table, conn.DateTable, conn.Table)
+	query := fmt.Sprintf(SQLCreateTable, conn.Table, conn.DateTable, conn.Table, conn.AICacheTable)
 	_, err := conn.db.Exec(query)
 	return err
 }
@@ -129,12 +134,19 @@ func (conn *DBConnection) Exec(query string, args ...any) (sql.Result, error) {
 	return conn.db.Exec(query, args...)
 }
 
-func (conn *DBConnection) CheckHasExists(hash string) (bool, error) {
-	var exists bool
-	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s WHERE hash = $1)", conn.Table)
-	err := conn.db.QueryRow(query, hash).Scan(&exists)
-	if err != nil {
-		return false, err
-	}
-	return exists, nil
+func (conn *DBConnection) GetAIResponse(hash string) ([]byte, error) {
+	var response []byte
+	query := fmt.Sprintf("SELECT response FROM %s WHERE hash = $1", conn.AICacheTable)
+	err := conn.db.QueryRow(query, hash).Scan(&response)
+	return response, err
+}
+
+func (conn *DBConnection) SaveAIResponse(hash string, response []byte) error {
+	query := fmt.Sprintf(`
+INSERT INTO %s (hash, response)
+VALUES ($1, $2::jsonb)
+ON CONFLICT (hash) DO UPDATE SET response = EXCLUDED.response
+	`, conn.AICacheTable)
+	_, err := conn.db.Exec(query, hash, string(response))
+	return err
 }

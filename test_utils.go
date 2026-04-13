@@ -35,7 +35,7 @@ func SetupTestDB(t *testing.T) *DBConnection {
 		GetEnv("DB_PSWD", "pswd"),
 		GetEnv("DB_NAME", "db"),
 	)
-	conn, err := NewConnection(dsn, "test_table", "test_dt")
+	conn, err := NewConnection(dsn, "test_table")
 	if err != nil {
 		t.Fatalf("Не удалось подключиться к БД: %v", err)
 	}

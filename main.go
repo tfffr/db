@@ -128,3 +128,13 @@ func (conn *DBConnection) SaveBatch(items []json.RawMessage, pageNumber int) err
 func (conn *DBConnection) Exec(query string, args ...any) (sql.Result, error) {
 	return conn.db.Exec(query, args...)
 }
+
+func (conn *DBConnection) CheckHasExists(hash string) (bool, error) {
+	var exists bool
+	query := fmt.Sprintf("SELECT EXISTS(SELECT 1 FROM %s WHERE hash = $1)", conn.Table)
+	err := conn.db.QueryRow(query, hash).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}

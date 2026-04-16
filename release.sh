@@ -1,53 +1,53 @@
 #!/bin/bash
 
-# 1. Получаем текущую версию (если тегов нет, начнем с v0.0.1)
+# 1. read latest tag (if none, start from v0.0.1)
 CURRENT_VERSION=$(git describe --tags --abbrev=0 2>/dev/null)
 
 if [ -z "$CURRENT_VERSION" ]; then
     CURRENT_VERSION="v0.0.1"
-    echo "Теги не найдены. Начинаем с $CURRENT_VERSION"
+    echo "no tags found. starting at $CURRENT_VERSION"
 else
-    echo "Текущая версия: $CURRENT_VERSION"
+    echo "current version: $CURRENT_VERSION"
 fi
 
-# Убираем префикс 'v', если он есть, чтобы работать только с цифрами
+# strip optional leading v to work with numeric parts only
 VERSION_WITHOUT_V="${CURRENT_VERSION#v}"
 
-# Разбиваем версию на мажорную, минорную и патч (например: 0 0 9)
+# split semver into major, minor, patch (e.g. 0 0 9)
 IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION_WITHOUT_V"
 
-# 2. Инкрементируем патч-версию
+# 2. bump patch
 PATCH=$((PATCH + 1))
 
-# Логика переноса (если патч стал 10, сбрасываем его в 0 и увеличиваем минорную)
+# carry when patch reaches 10: reset patch, bump minor
 if [ "$PATCH" -ge 10 ]; then
     PATCH=0
     MINOR=$((MINOR + 1))
 fi
 
-# Собираем новую версию обратно
+# assemble new version
 NEW_VERSION="v${MAJOR}.${MINOR}.${PATCH}"
-echo "Новая версия: $NEW_VERSION"
+echo "new version: $NEW_VERSION"
 
-# 3. Выполнение Git команд
-echo "Добавляем файлы..."
+# 3. git release steps
+echo "staging files..."
 git add .
 
-# Проверяем, есть ли вообще изменения для коммита
+# empty commit if nothing staged
 if git diff --staged --quiet; then
-    echo "Нет изменений для коммита, создаем пустой коммит для тега."
+    echo "no staged changes; creating empty commit for tag."
     git commit --allow-empty -m "Release $NEW_VERSION"
 else
     git commit -m "Release $NEW_VERSION"
 fi
 
-echo "Создаем тег $NEW_VERSION..."
+echo "creating tag $NEW_VERSION..."
 git tag "$NEW_VERSION"
 
-echo "Отправляем ветку main в origin..."
+echo "pushing branch main to origin..."
 git push origin main
 
-echo "Отправляем тег в origin..."
+echo "pushing tag to origin..."
 git push origin "$NEW_VERSION"
 
-echo "Готово! Версия $NEW_VERSION успешно опубликована."
+echo "done. published version $NEW_VERSION."

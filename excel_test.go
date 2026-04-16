@@ -5,18 +5,18 @@ import (
 )
 
 func TestExportToExcel(t *testing.T) {
-	// Подготовка тестовой БД
+	// set up test database
 	conn := SetupTestDB(t)
 	defer conn.Close()
 
-	// Наполнение тестовой БД данными
+	// seed test data
 	FillTestData(t, conn)
 
-	// Создание view
+	// create view
 	viewName := "v_test_output"
 	err := conn.CreateOutputView(viewName)
 	if err != nil {
-		t.Fatalf("Ошибка создания view: %v", err)
+		t.Fatalf("create view error: %v", err)
 	}
 
 	exportKeys := []string{
@@ -25,23 +25,23 @@ func TestExportToExcel(t *testing.T) {
 	}
 	err = conn.ExportViewToExcel(viewName, "report.xlsx", exportKeys, nil, nil)
 	if err != nil {
-		t.Fatalf("Ошибка экспорта в XLSX: %v", err)
+		t.Fatalf("xlsx export error: %v", err)
 	}
 }
 
 func TestExportToExcelWithApply(t *testing.T) {
-	// Подготовка тестовой БД
+	// set up test database
 	conn := SetupTestDB(t)
 	defer conn.Close()
 
-	// Наполнение тестовой БД данными
+	// seed test data
 	FillTestData(t, conn)
 
-	// Создание view
+	// create view
 	viewName := "v_test_output"
 	err := conn.CreateOutputView(viewName)
 	if err != nil {
-		t.Fatalf("Ошибка создания view: %v", err)
+		t.Fatalf("create view error: %v", err)
 	}
 
 	genreIdealTrack := map[string]string{
@@ -71,23 +71,23 @@ func TestExportToExcelWithApply(t *testing.T) {
 
 	err = conn.ExportViewToExcel(viewName, "report.xlsx", exportKeys, applyFunc, nil)
 	if err != nil {
-		t.Fatalf("Ошибка экспорта в XLSX: %v", err)
+		t.Fatalf("xlsx export error: %v", err)
 	}
 }
 
 func TestExportToExcelWithFilter(t *testing.T) {
-	// Подготовка тестовой БД
+	// set up test database
 	conn := SetupTestDB(t)
 	defer conn.Close()
 
-	// Наполнение тестовой БД данными
+	// seed test data
 	FillTestData(t, conn)
 
-	// Создание view
+	// create view
 	viewName := "v_test_output"
 	err := conn.CreateOutputView(viewName)
 	if err != nil {
-		t.Fatalf("Ошибка создания view: %v", err)
+		t.Fatalf("create view error: %v", err)
 	}
 
 	filterFunc := func(row map[string]any) bool {
@@ -105,6 +105,6 @@ func TestExportToExcelWithFilter(t *testing.T) {
 
 	err = conn.ExportViewToExcel(viewName, "report.xlsx", exportKeys, nil, filterFunc)
 	if err != nil {
-		t.Fatalf("Ошибка экспорта в XLSX: %v", err)
+		t.Fatalf("xlsx export error: %v", err)
 	}
 }

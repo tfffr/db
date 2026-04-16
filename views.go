@@ -62,7 +62,7 @@ func (conn *DBConnection) CreateOutputView(viewName string) error {
 
 	_, err := conn.db.Exec(query)
 	if err != nil {
-		return fmt.Errorf("Ошибка при создании view: %s: %w", viewName, err)
+		return fmt.Errorf("create view error %s: %w", viewName, err)
 	}
 	return nil
 }

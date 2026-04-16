@@ -21,7 +21,7 @@ const (
 func init() {
 	err := godotenv.Load()
 	if err != nil {
-		log.Println("Предупреждение: файл .env не найден, используются системные переменные")
+		log.Println("warning: .env file not found, using process environment")
 	}
 }
 

@@ -13,25 +13,25 @@ type Result struct {
 }
 
 func TestCreateOutputView(t *testing.T) {
-	// Подготовка тестовой БД
+	// set up test database
 	conn := SetupTestDB(t)
 	defer conn.Close()
 
-	// Наполнение тестовой БД данными
+	// seed test data
 	FillTestData(t, conn)
 
-	// Создание view
+	// create view
 	viewName := "v_test_output"
 	err := conn.CreateOutputView(viewName)
 	if err != nil {
-		t.Fatalf("Ошибка создания view: %v", err)
+		t.Fatalf("create view error: %v", err)
 	}
 
-	// Запись результатов
+	// query view results
 	query := fmt.Sprintf(SelectQueryString, viewName)
 	rows, err := conn.db.Query(query)
 	if err != nil {
-		t.Fatalf("Ошибка запроса к view: %v", err)
+		t.Fatalf("view query error: %v", err)
 	}
 	defer rows.Close()
 
@@ -42,7 +42,7 @@ func TestCreateOutputView(t *testing.T) {
 		var inc time.Time
 		var exc sql.NullTime
 		if err := rows.Scan(&record, &inc, &exc); err != nil {
-			t.Fatalf("Ошибка сканирования строки: %v", err)
+			t.Fatalf("row scan error: %v", err)
 		}
 		results[record] = Result{Inclusion: inc, Exclusion: exc}
 	}
@@ -51,14 +51,14 @@ func TestCreateOutputView(t *testing.T) {
 	checkAssert := func(record string, expectedInc string, expectedExc string) {
 		res, ok := results[record]
 		if !ok {
-			t.Errorf("Запись %s не найдена во view", record)
+			t.Errorf("record %s not found in view", record)
 			return
 		}
 
 		incStr := res.Inclusion.Format("2006-01-02")
 		if incStr != expectedInc {
 			t.Errorf(
-				"[%s] Ожидалась дата включения %s, получена %s",
+				"[%s] expected inclusion date %s, got %s",
 				record, expectedInc, incStr,
 			)
 		}
@@ -72,7 +72,7 @@ func TestCreateOutputView(t *testing.T) {
 
 		if excStr != expectedExc {
 			t.Errorf(
-				"[%s] Ожидалась дата исключения %s, получена %s",
+				"[%s] expected exclusion date %s, got %s",
 				record, expectedExc, excStr,
 			)
 		}

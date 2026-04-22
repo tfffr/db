@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS %s (
 	id SERIAL PRIMARY KEY,
 	json_data JSONB,
 	hash VARCHAR(64) UNIQUE,
+	person_hash VARCHAR(64),
 	page_number INT
 );
 CREATE TABLE IF NOT EXISTS %s (
